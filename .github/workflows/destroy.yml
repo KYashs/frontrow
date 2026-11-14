@@ -27,8 +27,8 @@ jobs:
       contents: read
       id-token: write
     env:
-      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
-      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_sender_email: ${{ secrets.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
     steps:
       - uses: actions/checkout@v4

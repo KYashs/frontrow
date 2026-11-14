@@ -205,7 +205,8 @@ The workflows get short-lived AWS credentials over OIDC, so no access keys are s
    If your AWS account already trusts GitHub Actions over OIDC, add `-var create_oidc_provider=false`. Keep the local `terraform.tfstate` this creates.
 
 2. **Configure the GitHub repository** under *Settings*:
-   - **Variables** (*Secrets and variables > Actions > Variables*): the four values printed as `github_variables`, plus `SENDER_EMAIL` (the address SES sends tickets from) and, optionally, `ALERT_EMAIL` for CloudWatch alarms.
+   - **Variables** (*Secrets and variables > Actions > Variables*): the four values printed as `github_variables`.
+   - **Secrets** (*Secrets and variables > Actions > Secrets*): `SENDER_EMAIL` (the address SES sends tickets from) and, optionally, `ALERT_EMAIL` for CloudWatch alarms. They are secrets, not variables, so they stay masked in the public Actions logs.
    - **Environment** named `production`. Under *Deployment branches*, allow only `main`; this is required, because the deploy role trusts this environment. Add yourself as a required reviewer if you want to approve each deploy.
    - **Branch protection** on `main`: require a pull request and the *Test* check to pass.
    - **Repository visibility:** Argo CD reads `deploy/` from this repository. A public repository needs nothing more. For a private one, add read-only credentials to Argo CD once (a GitHub deploy key, with `argocd repo add`), because Argo CD can't use the pipeline's token.

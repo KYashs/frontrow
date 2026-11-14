@@ -13,12 +13,14 @@ variable "region" {
 variable "sender_email" {
   description = "Address SES sends ticket confirmations from. SES emails a verification link on apply."
   type        = string
+  sensitive   = true # kept out of public plan output and PR comments
 }
 
 variable "alert_email" {
   description = "Optional address for CloudWatch alarm notifications."
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "domain_name" {

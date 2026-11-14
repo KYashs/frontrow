@@ -20,8 +20,8 @@ jobs:
       id-token: write
       issues: write
     env:
-      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
-      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_sender_email: ${{ secrets.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
       GH_TOKEN: ${{ github.token }}
     steps:
