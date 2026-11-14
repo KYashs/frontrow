@@ -199,8 +199,11 @@ The workflows get short-lived AWS credentials over OIDC, so no access keys are s
    ```bash
    cd terraform/bootstrap
    terraform init
-   terraform apply -var github_repository=<owner>/<repo>
+   terraform apply -var github_repository=<owner>/<repo> \
+     -var github_subject_prefix="$(gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix)"
    ```
+
+   Newer GitHub repositories identify themselves to AWS by immutable IDs (`repo:owner@id/name@id`), so the roles trust the exact prefix GitHub reports.
 
    If your AWS account already trusts GitHub Actions over OIDC, add `-var create_oidc_provider=false`. Keep the local `terraform.tfstate` this creates.
 

@@ -126,7 +126,9 @@ resource "aws_iam_role" "pod" {
 }
 
 resource "aws_iam_role_policy" "pod" {
-  for_each = { for k, v in local.pod_roles : k => v if v.policy != null }
+  # Filter on the key, not on the policy JSON: the JSON is unknown until apply,
+  # and for_each keys must be known at plan time. ebs-csi uses a managed policy.
+  for_each = { for k, v in local.pod_roles : k => v if k != "ebs-csi" }
   name     = "least-privilege"
   role     = aws_iam_role.pod[each.key].id
   policy   = each.value.policy

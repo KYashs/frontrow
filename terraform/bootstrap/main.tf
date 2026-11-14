@@ -39,7 +39,7 @@ locals {
   account     = data.aws_caller_identity.current.account_id
   oidc_host   = "token.actions.githubusercontent.com"
   oidc_arn    = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : "arn:${data.aws_partition.current.partition}:iam::${local.account}:oidc-provider/${local.oidc_host}"
-  repo        = "repo:${var.github_repository}"
+  repo        = var.github_subject_prefix != "" ? var.github_subject_prefix : "repo:${var.github_repository}"
   environment = "production"
 }
 
