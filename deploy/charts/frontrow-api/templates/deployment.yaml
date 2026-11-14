@@ -1,0 +1,81 @@
+{{- $image := printf "%s:%s" .Values.image.repository (required "image.tag is required" .Values.image.tag) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  # No replicas field: the HorizontalPodAutoscaler owns the count.
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: {{- include "api.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "api.labels" . | nindent 8 }}
+      annotations:
+        checksum/env: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {{- include "api.selector" . | nindent 14 }}
+      initContainers:
+        # Load the catalogue into RDS (idempotent), as the EC2 boot script used to.
+        - name: seed-catalog
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "seed_catalog.py"]
+          envFrom:
+            - configMapRef: { name: frontrow-api-env }
+          securityContext: &containerSecurity
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 256Mi }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      containers:
+        - name: api
+          image: {{ $image }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8000 }
+          envFrom:
+            - configMapRef: { name: frontrow-api-env }
+          env:
+            - name: SERVED_BY # shown in X-Served-By and the "See the AWS path" drawer
+              valueFrom:
+                fieldRef: { fieldPath: metadata.name }
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          lifecycle:
+            preStop:
+              # Keep serving while the ALB deregisters this pod, so no request is dropped.
+              exec: { command: ["sleep", "10"] }
+          securityContext: *containerSecurity
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,71 @@
+name: Drift check
+
+# GitOps only works if nobody changes AWS by hand. Once a day this compares
+# what is running with main, and opens an issue if they differ. (Inside the
+# cluster, Argo CD's self-heal already reverts manual kubectl changes.)
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    if: vars.AWS_PLAN_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    env:
+      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/terraform-setup
+        with:
+          role-arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          state-bucket: ${{ vars.TF_STATE_BUCKET }}
+          state-region: ${{ vars.TF_STATE_REGION }}
+
+      - name: Compare AWS with main
+        run: |
+          set +e
+          terraform -chdir=terraform/shared plan -input=false -lock=false -no-color -detailed-exitcode \
+            -var-file=../environments/shared.tfvars > plan.txt 2>&1
+          code=$?
+          if [ -n "$(terraform -chdir=terraform state list 2>/dev/null)" ]; then
+            terraform -chdir=terraform plan -input=false -lock=false -no-color -detailed-exitcode \
+              -var-file=environments/prod.tfvars >> plan.txt 2>&1
+            stack=$?
+            if [ $stack -eq 1 ] || [ $code -eq 1 ]; then code=1; elif [ $stack -eq 2 ]; then code=2; fi
+          else
+            echo "Stack is not deployed (empty state); checked shared resources only." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          set -e
+
+          title="Drift: AWS no longer matches main"
+          open=$(gh issue list --state open --label drift --json number --jq '.[0].number')
+          case $code in
+            0)
+              echo "No drift." >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "$open" ]; then gh issue close "$open" --comment "Resolved: AWS matches main again ($(date -u +%F))."; fi
+              ;;
+            2)
+              gh label create drift --color B60205 --description "AWS differs from main" --force > /dev/null
+              { echo "The daily check found changes made outside git. Either revert them in AWS, or make the same change in a pull request."
+                echo; echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+                echo; echo '```'; grep -vE '^\s*$' plan.txt | tail -c 60000; echo '```'; } > body.md
+              if [ -n "$open" ]; then gh issue comment "$open" --body-file body.md
+              else gh issue create --title "$title" --label drift --body-file body.md; fi
+              echo "::warning::Drift detected. See the drift issue."
+              ;;
+            *)
+              cat plan.txt; exit 1
+              ;;
+          esac

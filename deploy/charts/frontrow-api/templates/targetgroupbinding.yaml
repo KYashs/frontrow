@@ -1,0 +1,13 @@
+# Registers pod IPs in the ALB target group Terraform created. CloudFront, WAF
+# and the ALB stay in Terraform; only the targets move to Kubernetes.
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  targetGroupARN: {{ required "targetGroupArn is required" .Values.targetGroupArn }}
+  targetType: ip
+  serviceRef:
+    name: frontrow-api
+    port: 8000

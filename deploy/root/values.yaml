@@ -1,0 +1,35 @@
+# Set by Terraform on the root Application (terraform/argocd.tf). The empty
+# defaults here only exist so the chart renders in CI.
+repoURL: https://github.com/example/frontrow.git
+revision: main
+cluster:
+  name: frontrow
+  region: ap-south-1
+  vpcId: vpc-00000000
+api:
+  enabled: true
+  image:
+    repository: 123456789012.dkr.ecr.ap-south-1.amazonaws.com/frontrow-api
+    tag: "0000000000000000"
+  targetGroupArn: arn:aws:elasticloadbalancing:ap-south-1:123456789012:targetgroup/frontrow-tg/0000000000000000
+  env: {}
+loki:
+  bucket: frontrow-logs-example
+
+# Third-party charts. Upgrade one by changing its version in a pull request.
+charts:
+  awsLoadBalancerController:
+    repo: https://aws.github.io/eks-charts
+    version: 3.6.3
+  metricsServer:
+    repo: https://kubernetes-sigs.github.io/metrics-server/
+    version: 3.14.0
+  kubePrometheusStack:
+    repo: https://prometheus-community.github.io/helm-charts
+    version: 93.3.0
+  loki:
+    repo: https://grafana.github.io/helm-charts
+    version: 7.6.0
+  alloy:
+    repo: https://grafana.github.io/helm-charts
+    version: 1.16.0

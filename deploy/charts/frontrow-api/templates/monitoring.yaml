@@ -1,0 +1,56 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{- include "api.selector" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: frontrow-api
+      rules:
+        - alert: FrontRowHoldLatencyHigh
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(frontrow_http_request_duration_seconds_bucket{route="/api/holds", method="POST"}[5m])))
+              > {{ .Values.alerts.holdLatencyP95Seconds }}
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Hold p95 latency is above {{ mul .Values.alerts.holdLatencyP95Seconds 1000 }} ms
+            description: The hold path is the correctness boundary; its latency target is in docs/ARCHITECTURE.md.
+        - alert: FrontRowApiErrorRateHigh
+          expr: |
+            sum(rate(frontrow_http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum(rate(frontrow_http_requests_total[5m])), 1e-9) > {{ .Values.alerts.errorRatio }}
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: More than {{ mul .Values.alerts.errorRatio 100 }}% of API requests are failing
+        - alert: FrontRowApiPodsUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="frontrow-api"} < 2
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: Fewer than 2 API pods are ready (one per AZ is the minimum)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontrow-api-dashboard
+  labels:
+    {{- include "api.labels" . | nindent 4 }}
+    grafana_dashboard: "1" # picked up by Grafana's dashboard sidecar
+data:
+  frontrow-api.json: |-
+    {{- .Files.Get "dashboards/frontrow-api.json" | nindent 4 }}

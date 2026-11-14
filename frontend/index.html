@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FrontRow</title>
+  <meta name="description" content="FrontRow: a high-demand concert ticketing platform built on AWS. Portfolio demo.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="bar">
+    <a class="brand" href="#">FrontRow</a>
+    <button class="trace-toggle" id="trace-toggle" type="button" aria-expanded="false" aria-controls="trace">
+      <span class="pulse" aria-hidden="true"></span> See the AWS path
+    </button>
+  </header>
+
+  <main id="main">
+    <!-- Lineup poster -->
+    <section id="home" class="home" hidden>
+      <p class="home-kicker">Four shows. One platform built for the moment tickets drop.</p>
+      <ol id="lineup" class="lineup"></ol>
+      <p class="home-note">Every seat on these maps is a real record in DynamoDB. Open a show, join the waiting room, hold seats, and check out. Then open <em>See the AWS path</em> to watch each request travel through the stack.</p>
+    </section>
+
+    <!-- Event -->
+    <section id="event" class="event" hidden>
+      <div class="event-head">
+        <a class="back" href="#">All shows</a>
+        <h1 id="ev-artist"></h1>
+        <p id="ev-meta" class="ev-meta"></p>
+        <p class="live" id="live" hidden><span class="dot" aria-hidden="true"></span><span id="live-text">Live seat updates</span></p>
+      </div>
+
+      <div class="stage-grid">
+        <div class="map-wrap">
+          <svg id="map" class="map" role="img" aria-labelledby="map-title"><title id="map-title">Venue map</title></svg>
+          <div id="tooltip" class="tooltip" role="status" hidden></div>
+          <div id="queue" class="queue" hidden>
+            <div class="queue-card" role="dialog" aria-modal="true" aria-labelledby="queue-title">
+              <h2 id="queue-title">You're in the waiting room</h2>
+              <p id="queue-copy">Demand is high, so we let people in at a steady pace. Keep this tab open and your place is held.</p>
+              <div class="queue-figure"><span id="queue-ahead">…</span><small id="queue-ahead-label">people ahead of you</small></div>
+              <div class="progress" aria-hidden="true"><i id="queue-bar"></i></div>
+              <p class="queue-eta" id="queue-eta"></p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel" aria-label="Tickets">
+          <div id="panel-browse">
+            <div class="section-jump">
+              <label for="section-select">Choose a section</label>
+              <select id="section-select"></select>
+            </div>
+            <h2>Prices</h2>
+            <ul id="tiers" class="tiers"></ul>
+            <p class="hint" id="hint">Tap a section on the map to choose seats.</p>
+            <div id="picker"></div>
+          </div>
+          <div id="panel-hold" tabindex="-1" aria-label="Checkout" hidden></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <aside id="trace" class="trace" aria-label="AWS request path" hidden>
+    <div class="trace-head">
+      <h2>The AWS path</h2>
+      <p>Each request from this page, and every service that handled it.</p>
+      <button type="button" class="trace-close" id="trace-close" aria-label="Close">Close</button>
+    </div>
+    <ol id="trace-list" class="trace-list"></ol>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <footer class="foot">
+    FrontRow is a portfolio project demonstrating AWS architecture. Not affiliated with any artist, venue, promoter or ticketing company. Dates and prices are invented and no real tickets are sold.
+    <span id="served"></span>
+  </footer>
+  <script src="seatmap.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

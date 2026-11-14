@@ -1,0 +1,5 @@
+apiVersion: v2
+name: frontrow-api
+description: FrontRow API on EKS, registered in the Terraform-managed ALB target group.
+type: application
+version: 1.0.0

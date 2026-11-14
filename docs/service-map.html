@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FrontRow AWS Service Map</title>
+<meta name="description" content="Every AWS service in the FrontRow ticketing platform, grouped by layer, with the browse, waiting room, hold, checkout, live update and analytics flows drawn between them.">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1626;
+    --band: #101f35;
+    --band-line: #233654;
+    --node: #182b47;
+    --node-line: #35507a;
+    --ink: #f1f5fb;
+    --muted: #a9b9d0;
+    --trunk: #e2e8f0;
+  }
+  html, body { margin: 0; background: var(--bg); }
+  #stage { overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 1100px; height: auto; font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", "Liberation Sans", Arial, sans-serif; }
+  .band { fill: var(--band); stroke: var(--band-line); }
+  .band-title { fill: var(--muted); font-size: 14px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; text-anchor: end; }
+  .node rect { fill: var(--node); stroke: var(--node-line); stroke-width: 1.2; }
+  .node.optional rect { stroke-dasharray: 5 4; fill: transparent; }
+  .node.eks rect { stroke: #2dd4bf; stroke-width: 1.8; }
+  .eks-key { fill: #2dd4bf; font-size: 13.5px; font-weight: 600; text-anchor: end; }
+  .node .t { fill: var(--ink); font-size: 15px; font-weight: 700; }
+  .node .s { fill: var(--muted); font-size: 12.5px; }
+  .note { fill: var(--muted); font-size: 13.5px; }
+  .note b { fill: var(--ink); }
+  .edge { fill: none; stroke-width: 2.4; stroke-linejoin: round; transition: opacity .15s; }
+  .edge.dash { stroke-dasharray: 6 5; }
+  .key { cursor: pointer; outline: none; transition: opacity .15s; }
+  .key .n { fill: var(--ink); font-size: 14.5px; font-weight: 700; }
+  .key .d { fill: var(--muted); font-size: 12px; }
+  .key:focus-visible .hit { stroke: var(--ink); }
+  .hit { fill: transparent; stroke: none; }
+  .h1 { fill: var(--ink); font-size: 27px; font-weight: 800; }
+  .h2 { fill: var(--muted); font-size: 15px; }
+  .foot { fill: var(--muted); font-size: 12.5px; }
+  svg.isolating .edge:not(.on), svg.isolating .key:not(.on) { opacity: .1; }
+</style>
+</head>
+<body>
+<div id="stage">
+<svg id="map" viewBox="0 0 1620 1108" role="img" aria-labelledby="map-title map-desc">
+  <title id="map-title">FrontRow AWS service map</title>
+  <desc id="map-desc">AWS services grouped into edge, VPC, regional, async and event-driven, and observability and security layers, with arrows for the browse, waiting room, hold, checkout, live update, analytics and cleanup flows.</desc>
+  <defs id="defs"></defs>
+  <g id="bands"></g>
+  <g id="edges"></g>
+  <g id="nodes"></g>
+  <g id="notes"></g>
+  <g id="legend"></g>
+</svg>
+</div>
+<noscript><p style="color:#f1f5fb;font-family:sans-serif;padding:16px">This map draws with JavaScript. A static copy is at <a style="color:#60a5fa" href="service-map.png">service-map.png</a>.</p></noscript>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (parent, tag, attrs = {}, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    parent.appendChild(e);
+    return e;
+  };
+  const $ = (id) => document.getElementById(id);
+  const svg = $("map");
+
+  // ---- Flows. `trunk` is the shared CloudFront -> ALB -> API pod path every API call takes.
+  const FLOWS = {
+    browse:    { c: "#60a5fa", n: "Browse",          d: ["Edge cache, then RDS", "and DynamoDB"] },
+    waiting:   { c: "#fbbf24", n: "Waiting room",    d: ["Sharded counter; status", "checks are HMAC only"] },
+    hold:      { c: "#f472b6", n: "Hold",            d: ["One DynamoDB transaction:", "all seats or none"] },
+    checkout:  { c: "#4ade80", n: "Checkout",        d: ["202 now; SQS FIFO worker", "confirms, then email"] },
+    live:      { c: "#22d3ee", n: "Live updates",    d: ["Streams to WebSocket,", "every open seat map"] },
+    analytics: { c: "#a78bfa", n: "Analytics",       d: ["Order events to the", "lake, queried in Athena"] },
+    deploy:    { c: "#fb923c", n: "Deploy (GitOps)", d: ["Argo CD syncs from git;", "image pulled from ECR"] },
+    observe:   { c: "#e879f9", n: "Observe",         d: ["Metrics to Prometheus,", "logs to Loki, Grafana"] },
+    ops:       { c: "#94a3b8", n: "Cleanup + secrets", d: ["Sweeper, seeder,", "secrets, alarms"] },
+  };
+  const TRUNK = "#e2e8f0";
+  const API_FLOWS = "browse waiting hold checkout";
+
+  for (const [k, c] of [...Object.entries(FLOWS).map(([k, f]) => [k, f.c]), ["trunk", TRUNK]]) {
+    const m = el($("defs"), "marker", { id: `a-${k}`, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 11, markerHeight: 11, orient: "auto-start-reverse", markerUnits: "userSpaceOnUse" });
+    el(m, "path", { d: "M0 0.8 L9.5 5 L0 9.2 z", fill: c });
+  }
+
+  // ---- Layers
+  const BANDS = [
+    ["Edge", 72, 133],
+    ["VPC: 2 AZs", 232, 226, "bottom-left"],
+    ["Regional services", 480, 132, "top-left"],
+    ["Async + event-driven", 640, 296],
+    ["Observability, security + delivery", 948, 116],
+  ];
+  for (const [t, y, h, where] of BANDS) {
+    el($("bands"), "rect", { class: "band", x: 205, y, width: 1385, height: h, rx: 12 });
+    if (where === "bottom-left") el($("bands"), "text", { class: "band-title", x: 222, y: y + h - 14, style: "text-anchor:start" }, t);
+    else if (where === "top-left") el($("bands"), "text", { class: "band-title", x: 222, y: y + 19, style: "text-anchor:start" }, t);
+    else el($("bands"), "text", { class: "band-title", x: 1574, y: y + 21 }, t);
+  }
+
+  // ---- Services
+  const c = [230, 425, 640, 835, 1030, 1225, 1420];
+  const ROW_A = 672, ROW_B = 762, ROW_C = 852;
+  const NODES = [
+    [30, 110, 140, 70, "Browser", ["Site + seat map"]],
+    // Edge
+    [c[0], 110, 150, 70, "CloudFront", ["Site + API edge cache"]],
+    [c[1], 110, 150, 70, "AWS WAF", ["Managed rules,", "per-IP rate limits"]],
+    [c[2], 110, 150, 70, "Route 53", ["Optional domain"], "optional"],
+    [c[3], 110, 150, 70, "ACM", ["Optional certificate"], "optional"],
+    // VPC, row 1
+    [c[0], 262, 150, 70, "ALB", ["CloudFront only"]],
+    [c[1], 262, 150, 70, "API pods", ["FastAPI, HPA 2 to 6,", "own IAM role"], "eks"],
+    [c[2], 262, 160, 70, "RDS PostgreSQL", ["Catalogue + prices"]],
+    [c[3], 262, 150, 70, "Amazon EKS 1.37", ["Managed nodes,", "2 x t3.large, 2 AZs"], "eks"],
+    [c[4], 262, 150, 70, "Argo CD", ["Syncs deploy/ from", "GitHub main"], "eks"],
+    [c[5], 262, 150, 70, "Prometheus", ["Scrapes /metrics,", "alert rules, 7 days"], "eks"],
+    [c[6], 262, 150, 70, "Grafana", ["Prometheus, Loki,", "CloudWatch"], "eks"],
+    // VPC, row 2
+    [c[1], 375, 165, 70, "Gateway endpoints", ["S3, DynamoDB"]],
+    [c[2], 375, 175, 70, "NAT gateway", ["Public images,", "other AWS APIs"]],
+    [c[3], 375, 150, 70, "EKS add-ons", ["VPC CNI, CoreDNS,", "pod identity, EBS CSI"], "eks"],
+    [c[4], 375, 150, 70, "LB controller", ["Registers pods in", "the target group"], "eks"],
+    [c[5], 375, 150, 70, "Loki", ["Log store,", "chunks in S3"], "eks"],
+    [c[6], 375, 150, 70, "Alloy", ["Ships pod logs", "and events"], "eks"],
+    // Regional
+    [c[0], 510, 150, 90, "API Gateway", ["WebSocket API:", "$connect, $disconnect,", "@connections"]],
+    [c[1], 510, 200, 90, "DynamoDB", ["seats, inventory, holds,", "orders, waiting-room,", "ws-connections"]],
+    [c[3], 510, 160, 90, "Secrets Manager", ["RDS credentials,", "HMAC signing key"]],
+    [c[4], 510, 150, 90, "Amazon S3", ["Site + venue maps"]],
+    [c[5], 510, 150, 90, "Amazon ECR", ["API image, scanned,", "content-hash tags"]],
+    [c[6], 510, 150, 90, "S3 log bucket", ["Loki chunks,", "7-day retention"]],
+    // Async, row A
+    [c[0], ROW_A, 150, 70, "Lambda", ["stream_processor"]],
+    [c[1], ROW_A, 160, 70, "DynamoDB Streams", ["seats + inventory"]],
+    [c[2], ROW_A, 150, 70, "SQS FIFO", ["Checkout, + DLQs"]],
+    [c[3], ROW_A, 150, 70, "Lambda", ["checkout_worker"]],
+    [c[4], ROW_A, 150, 70, "EventBridge", ["Custom orders bus"]],
+    [c[5], ROW_A, 150, 70, "Lambda", ["notifier"]],
+    [c[6], ROW_A, 150, 70, "Amazon SES", ["Ticket email"]],
+    // Async, row B
+    [c[0], ROW_B, 150, 70, "Lambda", ["ws_connections"]],
+    [c[1], ROW_B, 150, 70, "Lambda", ["hold_sweeper"]],
+    [c[2], ROW_B, 150, 70, "EventBridge", ["1-minute schedule"]],
+    [c[4], ROW_B, 150, 70, "Data Firehose", ["Partitions by event, day"]],
+    [c[5], ROW_B, 150, 70, "S3 data lake", ["Order events, no PII"]],
+    [c[6], ROW_B, 150, 70, "Glue Catalog", ["Partition projection"]],
+    // Async, row C
+    [c[1], ROW_C, 150, 70, "Lambda", ["inventory_seeder"]],
+    [c[6], ROW_C, 150, 70, "Athena", ["Named SQL queries"]],
+    // Observability, security + delivery
+    [230, 978, 230, 70, "CloudWatch", ["Dashboard, alarms,", "logs, EMF metrics"]],
+    [485, 978, 150, 70, "Amazon SNS", ["Alarm email"]],
+    [660, 978, 180, 70, "AWS X-Ray", ["Traces on", "every Lambda"]],
+    [865, 978, 240, 70, "AWS IAM", ["A role per pod and function;", "MFA team roles"]],
+    [1130, 978, 200, 70, "Systems Manager", ["Session Manager onto", "nodes: no SSH"]],
+    [1355, 978, 220, 70, "GitHub Actions", ["PR plans; on merge:", "Terraform + image"]],
+  ];
+  for (const [x, y, w, h, t, sub, style] of NODES) {
+    const g = el($("nodes"), "g", { class: `node${style ? ` ${style}` : ""}` });
+    el(g, "rect", { x, y, width: w, height: h, rx: 9 });
+    const lines = sub.length;
+    const top = y + h / 2 - (lines * 16) / 2 - 1;
+    el(g, "text", { class: "t", x: x + 13, y: top }, t);
+    sub.forEach((s, i) => el(g, "text", { class: "s", x: x + 13, y: top + 18 + i * 16 }, s));
+  }
+
+  // ---- Flows between services. [flow(s) it belongs to, colour key, points, options]
+  const E = (flows, colour, pts, opt = {}) => ({ flows, colour, pts, ...opt });
+  const EDGES = [
+    // Shared path for every API call
+    E(`${API_FLOWS} trunk`, "trunk", [[170, 145], [230, 145]]),
+    E(`${API_FLOWS} trunk`, "trunk", [[290, 180], [290, 262]]),
+    E(`${API_FLOWS} trunk`, "trunk", [[380, 297], [425, 297]]),
+    E(`${API_FLOWS} trunk`, "trunk", [[380, 145], [425, 145]], { dash: true, both: true }),
+
+    // Browse
+    E("browse", "browse", [[350, 180], [350, 218], [1007, 218], [1007, 490], [1105, 490], [1105, 510]]),
+    E("browse", "browse", [[575, 285], [640, 285]]),
+    E("browse", "browse", [[455, 332], [455, 375]]),
+    E("browse", "browse", [[455, 445], [455, 510]]),
+
+    // Waiting room
+    E("waiting", "waiting", [[480, 332], [480, 375]]),
+    E("waiting", "waiting", [[480, 445], [480, 510]]),
+
+    // Hold
+    E("hold", "hold", [[575, 310], [640, 310]]),
+    E("hold", "hold", [[505, 332], [505, 375]]),
+    E("hold", "hold", [[505, 445], [505, 510]]),
+
+    // Checkout: through the NAT gateway to SQS
+    E("checkout", "checkout", [[530, 332], [530, 375]]),
+    E("checkout", "checkout", [[530, 445], [530, 510]]),
+    E("checkout", "checkout", [[565, 332], [565, 346], [730, 346], [730, 375]]),
+    E("checkout", "checkout", [[730, 445], [730, 672]]),
+    E("checkout", "checkout", [[790, 707], [835, 707]]),
+    E("checkout", "checkout", [[985, 707], [1030, 707]]),
+    E("checkout", "checkout", [[1180, 707], [1225, 707]]),
+    E("checkout", "checkout", [[1375, 707], [1420, 707]]),
+    E("checkout", "checkout", [[910, 672], [910, 628], [610, 628], [610, 600]]),
+    E("checkout", "checkout", [[1300, 672], [1300, 628], [910, 628]], { noArrow: true }),
+
+    // Live updates
+    E("live", "live", [[475, 600], [475, 672]]),
+    E("live", "live", [[425, 707], [380, 707]]),
+    E("live", "live", [[265, 672], [265, 600]]),
+    E("live", "live", [[100, 180], [100, 540], [230, 540]], { both: true }),
+    E("live", "live", [[230, 585], [215, 585], [215, 797], [230, 797]]),
+    E("live", "live", [[345, 672], [345, 640], [402, 640], [402, 565], [425, 565]]),
+    E("live", "live", [[380, 797], [402, 797], [402, 640]], { noArrow: true }),
+
+    // Analytics
+    E("analytics", "analytics", [[1105, 742], [1105, 762]]),
+    E("analytics", "analytics", [[1180, 797], [1225, 797]]),
+    E("analytics", "analytics", [[1375, 797], [1420, 797]]),
+    E("analytics", "analytics", [[1495, 832], [1495, 852]]),
+
+    // Deploy (GitOps): Argo CD rolls out the pods; nodes pull the image from ECR
+    E("deploy", "deploy", [[1080, 262], [1080, 242], [520, 242], [520, 262]]),
+    E("deploy", "deploy", [[1275, 510], [1275, 474], [600, 474], [600, 322], [575, 322]], { dash: true }),
+
+    // Observe: Prometheus scrapes the pods; Alloy ships logs to Loki; Grafana shows both
+    E("observe", "observe", [[555, 262], [555, 251], [1300, 251], [1300, 262]]),
+    E("observe", "observe", [[1375, 297], [1420, 297]]),
+    E("observe", "observe", [[1420, 410], [1375, 410]]),
+    E("observe", "observe", [[1340, 375], [1340, 355], [1450, 355], [1450, 332]]),
+    E("observe", "observe", [[1260, 445], [1260, 462], [1495, 462], [1495, 510]]),
+
+    // Cleanup + secrets
+    E("ops", "ops", [[640, 797], [575, 797]]),
+    E("ops", "ops", [[575, 780], [595, 780], [595, 600]]),
+    E("ops", "ops", [[575, 887], [595, 887], [595, 780]], { dash: true, noArrow: true }),
+    E("ops", "ops", [[548, 332], [548, 354], [700, 354], [700, 375]], { dash: true }),
+    E("ops", "ops", [[780, 445], [780, 466], [910, 466], [910, 510]], { dash: true }),
+
+    // Alarms
+    E("ops", "ops", [[460, 1013], [485, 1013]]),
+
+    // Optional custom domain
+    E("trunk", "trunk", [[715, 110], [715, 94], [305, 94], [305, 110]], { dash: true }),
+    E("trunk", "trunk", [[910, 110], [910, 94], [715, 94]], { dash: true, noArrow: true }),
+  ];
+
+  const pathD = (pts, r = 9) => {
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length; i++) {
+      const [x, y] = pts[i];
+      if (i === pts.length - 1) { d += ` L${x} ${y}`; break; }
+      const [px, py] = pts[i - 1], [nx, ny] = pts[i + 1];
+      const len1 = Math.hypot(x - px, y - py), len2 = Math.hypot(nx - x, ny - y);
+      const a = Math.min(r, len1 / 2), b = Math.min(r, len2 / 2);
+      d += ` L${x - ((x - px) / len1) * a} ${y - ((y - py) / len1) * a}`;
+      d += ` Q${x} ${y} ${x + ((nx - x) / len2) * b} ${y + ((ny - y) / len2) * b}`;
+    }
+    return d;
+  };
+  for (const e of EDGES) {
+    const col = e.colour === "trunk" ? TRUNK : FLOWS[e.colour].c;
+    const attrs = { class: `edge${e.dash ? " dash" : ""}`, d: pathD(e.pts), stroke: col, "data-flows": e.flows };
+    if (!e.noArrow) attrs["marker-end"] = `url(#a-${e.colour})`;
+    if (e.both) attrs["marker-start"] = `url(#a-${e.colour})`;
+    el($("edges"), "path", attrs);
+  }
+
+  // ---- Notes, placed in the empty cells beside the flows they explain
+  const NOTES = [
+    [1150, 128, "Edge cache: catalogue 30 s, seat grids 2 s, writes never."],
+    [1150, 150, "WAF inspects every request reaching the distribution."],
+    [1150, 172, "A hold is one DynamoDB transaction: all seats or none."],
+    [835, 882, "The bus carries no PII. New consumers attach"],
+    [835, 904, "without touching or redeploying checkout."],
+  ];
+  for (const [x, y, t] of NOTES) el($("notes"), "text", { class: "note", x, y }, t);
+
+  // ---- Heading + footer
+  el($("notes"), "text", { class: "h1", x: 30, y: 44 }, "FrontRow");
+  el($("notes"), "text", { class: "h2", x: 172, y: 44 }, "AWS service map of a high-demand concert ticketing platform. Defined in Terraform, deployed by GitOps.");
+  el($("notes"), "text", { class: "eks-key", x: 1590, y: 44 }, "Teal outline: runs in the EKS cluster");
+  el($("notes"), "text", { class: "foot", x: 30, y: 1088 }, "Portfolio project and demo only. Not affiliated with any artist, venue, promoter or ticketing company. No real tickets are sold.");
+
+  // ---- Legend: click a flow to isolate it
+  el($("legend"), "text", { class: "band-title", x: 30, y: 590, style: "text-anchor:start" }, "Flows");
+  const allEdges = [...svg.querySelectorAll(".edge")];
+  let active = null;
+  const paint = () => {
+    svg.classList.toggle("isolating", !!active);
+    allEdges.forEach((p) => p.classList.toggle("on", !!active && p.dataset.flows.split(" ").includes(active)));
+    svg.querySelectorAll(".key").forEach((k) => {
+      k.classList.toggle("on", k.dataset.flow === active);
+      k.setAttribute("aria-pressed", String(k.dataset.flow === active));
+    });
+  };
+  Object.entries(FLOWS).forEach(([k, f], i) => {
+    const y = 604 + i * 52;
+    const g = el($("legend"), "g", { class: "key", "data-flow": k, tabindex: 0, role: "button", "aria-pressed": "false", "aria-label": `Isolate the ${f.n} flow` });
+    el(g, "rect", { class: "hit", x: 22, y: y - 6, width: 176, height: 50, rx: 6 });
+    el(g, "rect", { x: 30, y: y + 5, width: 18, height: 4, rx: 2, fill: f.c });
+    el(g, "text", { class: "n", x: 55, y: y + 12 }, f.n);
+    f.d.forEach((t, j) => el(g, "text", { class: "d", x: 30, y: y + 28 + j * 14 }, t));
+    const pick = () => { active = active === k ? null : k; paint(); };
+    g.addEventListener("click", pick);
+    g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(); } });
+  });
+})();
+</script>
+</body>
+</html>

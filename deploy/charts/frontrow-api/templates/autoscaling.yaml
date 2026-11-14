@@ -1,0 +1,29 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: frontrow-api }
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }} }
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0 # ticket drops spike in seconds
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontrow-api
+  labels: {{- include "api.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1 # node upgrades never take the API fully down
+  selector:
+    matchLabels: {{- include "api.selector" . | nindent 6 }}

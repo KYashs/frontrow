@@ -1,0 +1,76 @@
+name: Pull request
+
+# Every change to production goes through a pull request. This workflow tests
+# it and posts the Terraform plans, so the review covers exactly what will change.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  plan:
+    needs: test
+    # Skip until terraform/bootstrap has been applied, and for pull requests
+    # from forks (they get no AWS credentials).
+    if: vars.AWS_PLAN_ROLE_ARN != '' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/terraform-setup
+        with:
+          role-arn: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          state-bucket: ${{ vars.TF_STATE_BUCKET }}
+          state-region: ${{ vars.TF_STATE_REGION }}
+
+      # Read-only role, so no state lock: a plan never blocks a deploy.
+      - name: terraform plan
+        run: |
+          terraform -chdir=terraform/shared plan -input=false -lock=false -no-color \
+            -var-file=../environments/shared.tfvars -out=tfplan
+          terraform -chdir=terraform/shared show -no-color tfplan > shared-plan.txt
+          terraform -chdir=terraform plan -input=false -lock=false -no-color \
+            -var-file=environments/prod.tfvars -out=tfplan
+          terraform -chdir=terraform show -no-color tfplan > stack-plan.txt
+
+      - name: Post the plans on the pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const section = (title, file) => {
+              let plan = fs.readFileSync(file, "utf8");
+              const summary = plan.split("\n").find((l) => /^(Plan:|No changes\.)/.test(l)) || "see the workflow log";
+              if (plan.length > 30000) plan = plan.slice(0, 30000) + "\n... truncated, see the workflow log";
+              return `#### ${title}: ${summary}\n\n<details><summary>Full plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`;
+            };
+            const marker = "<!-- terraform-plan -->";
+            const body = [
+              `${marker}\n### Terraform plans for ${context.sha.slice(0, 7)}`,
+              "Merging applies both. Changes under `deploy/` are synced by Argo CD from `main`.",
+              section("Shared (ECR, team IAM)", "shared-plan.txt"),
+              section("Stack", "stack-plan.txt"),
+            ].join("\n\n");
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const mine = comments.find((c) => c.body.startsWith(marker));
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });

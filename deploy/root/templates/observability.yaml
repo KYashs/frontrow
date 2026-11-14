@@ -1,0 +1,89 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  {{- include "root.meta" (dict "wave" "0") | nindent 2 }}
+spec:
+  project: default
+  sources:
+    - repoURL: {{ .Values.charts.kubePrometheusStack.repo }}
+      chart: kube-prometheus-stack
+      targetRevision: {{ .Values.charts.kubePrometheusStack.version }}
+      helm:
+        valueFiles:
+          - $values/deploy/platform/kube-prometheus-stack.yaml
+        valuesObject:
+          grafana:
+            additionalDataSources:
+              - name: Loki
+                uid: loki
+                type: loki
+                access: proxy
+                url: http://loki-gateway.monitoring.svc.cluster.local
+              - name: CloudWatch
+                uid: cloudwatch
+                type: cloudwatch
+                access: proxy
+                jsonData:
+                  authType: default # Grafana's pod identity role (terraform/eks_iam.tf)
+                  defaultRegion: {{ .Values.cluster.region }}
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  {{- include "root.syncPolicy" . | nindent 2 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  {{- include "root.meta" (dict "wave" "0") | nindent 2 }}
+spec:
+  project: default
+  sources:
+    - repoURL: {{ .Values.charts.loki.repo }}
+      chart: loki
+      targetRevision: {{ .Values.charts.loki.version }}
+      helm:
+        valueFiles:
+          - $values/deploy/platform/loki.yaml
+        valuesObject:
+          loki:
+            storage:
+              bucketNames:
+                chunks: {{ .Values.loki.bucket }}
+                ruler: {{ .Values.loki.bucket }}
+                admin: {{ .Values.loki.bucket }}
+              s3:
+                region: {{ .Values.cluster.region }}
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  {{- include "root.syncPolicy" . | nindent 2 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  {{- include "root.meta" (dict "wave" "0") | nindent 2 }}
+spec:
+  project: default
+  sources:
+    - repoURL: {{ .Values.charts.alloy.repo }}
+      chart: alloy
+      targetRevision: {{ .Values.charts.alloy.version }}
+      helm:
+        valueFiles:
+          - $values/deploy/platform/alloy.yaml
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  {{- include "root.syncPolicy" . | nindent 2 }}

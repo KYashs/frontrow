@@ -1,0 +1,63 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-base
+  {{- include "root.meta" (dict "wave" "-2") | nindent 2 }}
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.revision }}
+    path: deploy/charts/platform-base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  {{- include "root.syncPolicy" . | nindent 2 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  {{- include "root.meta" (dict "wave" "-1") | nindent 2 }}
+spec:
+  project: default
+  sources:
+    - repoURL: {{ .Values.charts.awsLoadBalancerController.repo }}
+      chart: aws-load-balancer-controller
+      targetRevision: {{ .Values.charts.awsLoadBalancerController.version }}
+      helm:
+        valueFiles:
+          - $values/deploy/platform/aws-load-balancer-controller.yaml
+        valuesObject:
+          clusterName: {{ .Values.cluster.name }}
+          region: {{ .Values.cluster.region }}
+          vpcId: {{ .Values.cluster.vpcId }}
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  {{- include "root.syncPolicy" . | nindent 2 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  {{- include "root.meta" (dict "wave" "-1") | nindent 2 }}
+spec:
+  project: default
+  sources:
+    - repoURL: {{ .Values.charts.metricsServer.repo }}
+      chart: metrics-server
+      targetRevision: {{ .Values.charts.metricsServer.version }}
+      helm:
+        valueFiles:
+          - $values/deploy/platform/metrics-server.yaml
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  {{- include "root.syncPolicy" . | nindent 2 }}

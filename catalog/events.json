@@ -1,0 +1,89 @@
+{
+  "_note": "Portfolio demo data. Not affiliated with, endorsed by, or connected to any artist, venue, promoter or ticketing company. Dates and prices are invented; no real tickets are sold.",
+  "events": [
+    {
+      "event_id": "fred-again-mumbai-2027",
+      "artist": "Fred again..",
+      "title": "Live in Mumbai",
+      "venue_id": "dy-patil",
+      "starts_at": "2027-01-30T19:00:00+05:30",
+      "currency": "INR",
+      "genre": "Electronic",
+      "art": ["#ff5e62", "#ff9966"],
+      "tiers": [
+        {"tier": "FANPIT", "name": "Fan Pit", "price": 14999},
+        {"tier": "DIAMOND", "name": "Diamond Tables", "price": 29999},
+        {"tier": "GOLDTABLE", "name": "Gold Tables", "price": 19999},
+        {"tier": "LOUNGE", "name": "Skyline Lounge", "price": 17999},
+        {"tier": "VIPFLOOR", "name": "VIP Floor", "price": 9999},
+        {"tier": "PLATINUM", "name": "Platinum Deck", "price": 7999},
+        {"tier": "GAPREMIUM", "name": "GA Premium", "price": 5999},
+        {"tier": "STAND-L1", "name": "Level 1", "price": 4499},
+        {"tier": "STAND-L2", "name": "Level 2", "price": 2999},
+        {"tier": "STAND-L3", "name": "Level 3", "price": 1799}
+      ],
+      "killed": {"levels": [], "half_angle": 0},
+      "onsale": {"mode": "queue", "rate_per_sec": 40, "initial": 300}
+    },
+    {
+      "event_id": "skrillex-delhi-2027",
+      "artist": "Skrillex",
+      "title": "Live in New Delhi",
+      "venue_id": "jln-delhi",
+      "starts_at": "2027-02-13T18:30:00+05:30",
+      "currency": "INR",
+      "genre": "Electronic",
+      "art": ["#00c6ff", "#7b2ff7"],
+      "tiers": [
+        {"tier": "TABLES", "name": "Tables", "price": 24999},
+        {"tier": "GOLD", "name": "Gold", "price": 9999},
+        {"tier": "SILVER", "name": "Silver", "price": 3999},
+        {"tier": "STAND-A", "name": "Lower Stand (A)", "price": 2499},
+        {"tier": "STAND-B", "name": "Upper Stand (B)", "price": 1499}
+      ],
+      "killed": {"levels": [], "half_angle": 0},
+      "onsale": {"mode": "queue", "rate_per_sec": 40, "initial": 300}
+    },
+    {
+      "event_id": "the-weeknd-sofi-2027",
+      "artist": "The Weeknd",
+      "title": "Live at SoFi Stadium",
+      "venue_id": "sofi",
+      "starts_at": "2027-05-22T20:00:00-07:00",
+      "currency": "USD",
+      "genre": "R&B / Pop",
+      "art": ["#f5f5f5", "#e52d27"],
+      "tiers": [
+        {"tier": "FLOOR-A", "name": "Floor A", "price": 399},
+        {"tier": "FLOOR-B", "name": "Floor B", "price": 329},
+        {"tier": "FLOOR-C", "name": "Floor C", "price": 279},
+        {"tier": "L100", "name": "100 Level", "price": 239},
+        {"tier": "L200", "name": "200 Level Club", "price": 199},
+        {"tier": "L300", "name": "300 Level", "price": 149},
+        {"tier": "L400", "name": "400 Level", "price": 109},
+        {"tier": "L500", "name": "500 Level", "price": 79}
+      ],
+      "killed": {"levels": ["L100", "L200", "L300", "L400", "L500"], "center": 0, "half_angle": 52},
+      "onsale": {"mode": "queue", "rate_per_sec": 50, "initial": 500}
+    },
+    {
+      "event_id": "kendrick-lamar-metlife-2027",
+      "artist": "Kendrick Lamar",
+      "title": "Live at MetLife Stadium",
+      "venue_id": "metlife",
+      "starts_at": "2027-06-12T20:00:00-04:00",
+      "currency": "USD",
+      "genre": "Hip-hop",
+      "art": ["#f7971e", "#c0392b"],
+      "tiers": [
+        {"tier": "PIT", "name": "Pit GA", "price": 425},
+        {"tier": "FIELD", "name": "Field GA", "price": 249},
+        {"tier": "L100", "name": "100 Level", "price": 219},
+        {"tier": "L200", "name": "200 Mezzanine", "price": 159},
+        {"tier": "L300", "name": "300 Level", "price": 95}
+      ],
+      "killed": {"levels": ["L100", "L200", "L300"], "center": 0, "half_angle": 30},
+      "onsale": {"mode": "queue", "rate_per_sec": 50, "initial": 500}
+    }
+  ]
+}

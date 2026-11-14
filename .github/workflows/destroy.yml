@@ -1,0 +1,65 @@
+name: Destroy
+
+# The stack costs about $10-11 a day. Tear it down when the demo is over;
+# re-running Deploy brings it back. terraform/shared (ECR images, team IAM) and
+# terraform/bootstrap are kept.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "destroy frontrow" to delete every resource in the stack.
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    if: inputs.confirm == 'destroy frontrow' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/terraform-setup
+        with:
+          role-arn: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          state-bucket: ${{ vars.TF_STATE_BUCKET }}
+          state-region: ${{ vars.TF_STATE_REGION }}
+
+      # Argo CD created things Terraform doesn't know about: pods registered in
+      # the target group and EBS volumes for Prometheus and Loki. Delete them
+      # through Argo CD first, or the volumes would outlive the cluster.
+      - name: Remove what Argo CD deployed
+        working-directory: terraform
+        run: |
+          cluster="$(terraform output -raw cluster_name 2>/dev/null || true)"
+          region="$(terraform output -raw region 2>/dev/null || true)"
+          if [ -z "$cluster" ] || ! aws eks describe-cluster --name "$cluster" --region "$region" > /dev/null 2>&1; then
+            echo "No cluster running; nothing to clean up."; exit 0
+          fi
+          aws eks update-kubeconfig --name "$cluster" --region "$region"
+          # The API first, while the load balancer controller can still deregister its pods.
+          kubectl -n argocd delete application frontrow-api --ignore-not-found --wait --timeout=10m
+          # Then everything else: each Application's finalizer deletes what it deployed.
+          kubectl -n argocd delete application frontrow-root --ignore-not-found --wait --timeout=15m
+          kubectl delete pvc --all --all-namespaces --wait --timeout=10m
+
+      - name: terraform destroy
+        working-directory: terraform
+        run: |
+          terraform destroy -input=false -auto-approve -lock-timeout=10m -no-color \
+            -var-file=environments/prod.tfvars
+          echo "Stack destroyed. ECR images, team IAM (terraform/shared) and the state bucket are kept." >> "$GITHUB_STEP_SUMMARY"

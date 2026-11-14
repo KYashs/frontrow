@@ -1,0 +1,25 @@
+{{- if .Values.api.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontrow-api
+  {{- include "root.meta" (dict "wave" "1") | nindent 2 }}
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.revision }}
+    path: deploy/charts/frontrow-api
+    helm:
+      valuesObject:
+        image:
+          repository: {{ .Values.api.image.repository }}
+          tag: {{ .Values.api.image.tag | quote }}
+        targetGroupArn: {{ .Values.api.targetGroupArn }}
+        env:
+          {{- toYaml .Values.api.env | nindent 10 }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: frontrow
+  {{- include "root.syncPolicy" . | nindent 2 }}
+{{- end }}

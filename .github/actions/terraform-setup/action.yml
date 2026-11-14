@@ -1,0 +1,64 @@
+name: Terraform setup
+description: >-
+  Build the Lambda zips, compute the API image tag, install Terraform, assume an
+  AWS role over OIDC, and initialise remote state for terraform/shared and terraform/.
+
+inputs:
+  role-arn:
+    description: IAM role to assume (plan or deploy role from terraform/bootstrap).
+    required: true
+  state-bucket:
+    description: S3 bucket holding Terraform state.
+    required: true
+  state-region:
+    description: Region of the state bucket.
+    required: true
+
+outputs:
+  image-tag:
+    description: Content-hash tag of the API image for this commit.
+    value: ${{ steps.tag.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.14"
+
+    # Reproducible: the same commit gives byte-identical zips, so Terraform
+    # only deploys the Lambdas whose code changed.
+    - name: Build Lambda bundles
+      shell: bash
+      run: bash scripts/build.sh
+
+    # Also content-addressed: unchanged API code means an unchanged tag, so
+    # nothing is rebuilt and Argo CD has nothing to roll out.
+    - name: API image tag
+      id: tag
+      shell: bash
+      run: |
+        tag="$(bash scripts/image-tag.sh)"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        echo "TF_VAR_api_image_tag=$tag" >> "$GITHUB_ENV"
+        echo "API image tag: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.17.0"
+        terraform_wrapper: false
+
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-arn }}
+        role-session-name: gha-${{ github.run_id }}
+        aws-region: ${{ inputs.state-region }}
+
+    - name: terraform init
+      shell: bash
+      run: |
+        for dir in terraform/shared terraform; do
+          terraform -chdir="$dir" init -input=false \
+            -backend-config="bucket=${{ inputs.state-bucket }}" \
+            -backend-config="region=${{ inputs.state-region }}"
+        done

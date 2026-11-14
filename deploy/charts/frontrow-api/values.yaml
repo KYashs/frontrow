@@ -1,0 +1,29 @@
+# image.tag, targetGroupArn and env are set by the root Application from
+# Terraform outputs. The image tag is a content hash (scripts/image-tag.sh).
+image:
+  repository: frontrow-api
+  tag: ""
+  pullPolicy: IfNotPresent
+
+targetGroupArn: ""
+
+# Non-secret settings (table names, queue URL, secret ARNs). Secrets themselves
+# are read from Secrets Manager at runtime with the pod's own IAM role.
+env: {}
+
+serviceAccount:
+  name: frontrow-api # matches the pod identity association in terraform/eks_iam.tf
+
+autoscaling:
+  minReplicas: 2 # one per AZ
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+resources:
+  requests: { cpu: 250m, memory: 256Mi }
+  limits: { memory: 512Mi }
+
+# Alert thresholds (docs/ARCHITECTURE.md, non-functional requirements).
+alerts:
+  holdLatencyP95Seconds: 0.3
+  errorRatio: 0.02

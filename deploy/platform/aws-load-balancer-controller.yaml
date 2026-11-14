@@ -1,0 +1,12 @@
+# Used only for TargetGroupBinding: it registers API pod IPs in the ALB target
+# group that Terraform owns. It does not create load balancers, so its IAM role
+# is small (terraform/eks_iam.tf). clusterName, region and vpcId come from Terraform.
+replicaCount: 2
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller # matches the pod identity association
+createIngressClassResource: false
+enableServiceMutatorWebhook: false
+resources:
+  requests: { cpu: 25m, memory: 64Mi }
+  limits: { memory: 192Mi }

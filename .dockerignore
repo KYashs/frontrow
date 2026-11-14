@@ -1,0 +1,7 @@
+*
+!app/*.py
+!app/requirements.txt
+!app/constraints.txt
+!core/*.py
+!catalog/events.json
+!venues/*.json

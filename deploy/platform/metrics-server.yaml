@@ -1,0 +1,5 @@
+# CPU and memory metrics for the API's HorizontalPodAutoscaler and `kubectl top`.
+replicas: 1
+resources:
+  requests: { cpu: 25m, memory: 48Mi }
+  limits: { memory: 128Mi }

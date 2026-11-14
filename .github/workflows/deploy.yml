@@ -1,0 +1,83 @@
+name: Deploy
+
+# main is the source of truth. This applies the AWS side (Terraform) and ships
+# the API image; Argo CD then syncs the cluster side (deploy/) from main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, in order. Never cancel an apply halfway.
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy:
+    needs: test
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120 # a first deploy waits on EKS, CloudFront and RDS
+    environment:
+      name: production
+      url: ${{ steps.out.outputs.site_url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_VAR_sender_email: ${{ vars.SENDER_EMAIL }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_gitops_repo_url: ${{ github.server_url }}/${{ github.repository }}.git
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/terraform-setup
+        id: setup
+        with:
+          role-arn: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          state-bucket: ${{ vars.TF_STATE_BUCKET }}
+          state-region: ${{ vars.TF_STATE_REGION }}
+
+      - name: Apply shared (ECR, team IAM)
+        working-directory: terraform/shared
+        run: |
+          terraform plan -input=false -lock-timeout=10m -no-color -var-file=../environments/shared.tfvars -out=tfplan
+          terraform apply -input=false -lock-timeout=10m -no-color tfplan
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the API image (skipped if this tag exists)
+        env:
+          TAG: ${{ steps.setup.outputs.image-tag }}
+        run: |
+          repo="$(terraform -chdir=terraform/shared output -raw ecr_repository_url)"
+          if aws ecr describe-images --repository-name "${repo##*/}" --image-ids imageTag="$TAG" > /dev/null 2>&1; then
+            echo "Image $TAG already in ECR: the API is unchanged." >> "$GITHUB_STEP_SUMMARY"
+          else
+            docker build --platform linux/amd64 -t "$repo:$TAG" .
+            docker push "$repo:$TAG"
+            echo "Pushed $repo:$TAG" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Apply the stack
+        working-directory: terraform
+        run: |
+          terraform plan -input=false -lock-timeout=10m -no-color -var-file=environments/prod.tfvars -out=tfplan
+          terraform show -no-color tfplan | grep -E '^(Plan:|No changes\.)' >> "$GITHUB_STEP_SUMMARY" || true
+          terraform apply -input=false -lock-timeout=10m -no-color tfplan
+
+      - name: Outputs
+        id: out
+        working-directory: terraform
+        run: |
+          echo "site_url=$(terraform output -raw site_url)" >> "$GITHUB_OUTPUT"
+          { echo "Live at $(terraform output -raw site_url)"
+            echo "Argo CD is now syncing deploy/ from main. Watch it with:"
+            echo '```'; terraform output -raw kubeconfig_command; echo; terraform output -json argocd | python3 -c 'import json,sys; print(json.load(sys.stdin)["port_forward"])'; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

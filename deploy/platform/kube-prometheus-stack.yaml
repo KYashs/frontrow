@@ -1,0 +1,71 @@
+# Prometheus, Alertmanager and Grafana. Data sources for Loki and CloudWatch are
+# added by the root Application (they need the region from Terraform).
+
+# EKS runs the control plane; its scheduler, controller manager and etcd are not scrapeable.
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    retentionSize: 15GB
+    # Pick up ServiceMonitors and PrometheusRules from every namespace (the API ships its own).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 200m, memory: 1Gi }
+      limits: { memory: 2Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: { storage: 20Gi }
+
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests: { cpu: 10m, memory: 48Mi }
+      limits: { memory: 128Mi }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { memory: 256Mi }
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 48Mi }
+    limits: { memory: 128Mi }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 10m, memory: 24Mi }
+    limits: { memory: 64Mi }
+
+grafana:
+  serviceAccount:
+    name: grafana # matches the pod identity association (CloudWatch read access)
+  admin:
+    existingSecret: grafana-admin # created by Terraform; Argo CD would regenerate a chart-made password
+  persistence:
+    enabled: false # dashboards and data sources are provisioned from git
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL # the API chart ships its dashboard as a ConfigMap
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
