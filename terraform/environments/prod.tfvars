@@ -9,7 +9,7 @@
 # The pipeline also sets api_image_tag (a hash of the API's source, see
 # scripts/image-tag.sh) and gitops_repo_url (this repository, for Argo CD).
 
-region = "ap-south-1"
+region = "us-east-1"
 
 eks_version        = "1.37" # standard support until 2027-12-01
 node_instance_type = "t3.large"

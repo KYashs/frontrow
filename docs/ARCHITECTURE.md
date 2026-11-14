@@ -182,21 +182,21 @@ The waiting-room rate is the single knob that keeps every downstream number in i
 
 ## 7. Cost
 
-On-demand, `ap-south-1`, idle-to-light demo traffic. Check the AWS Pricing Calculator for your region.
+On-demand, `us-east-1` (chosen for its lower prices), idle-to-light demo traffic. Check the AWS Pricing Calculator for your region.
 
 | Item | Approx. per day |
 |---|---|
-| 2 x EKS nodes, t3.large | $4.30 |
+| 2 x EKS nodes, t3.large | $4.00 |
 | EKS control plane | $2.40 |
-| NAT gateway (plus a few cents of data) | $1.35 |
-| ALB | $0.60 |
-| RDS db.t4g.micro single-AZ | $0.50 |
+| NAT gateway (plus a few cents of data) | $1.10 |
+| ALB | $0.55 |
+| RDS db.t4g.micro single-AZ | $0.40 |
 | WAF (web ACL + 5 rules, prorated) | $0.35 |
 | Public IPv4 addresses (ALB, NAT) | $0.35 |
-| EBS gp3: node disks, Prometheus and Loki volumes (~90 GB) | $0.27 |
+| EBS gp3: node disks, Prometheus and Loki volumes (~90 GB) | $0.24 |
 | DynamoDB storage + seeding (one-off ~$0.20) | $0.05 |
 | Lambda, SQS, EventBridge, API Gateway WS, Firehose, S3, CloudFront, Athena, ECR, control-plane logs | cents |
-| **Total** | **≈ $10–11/day** |
+| **Total** | **≈ $9–10/day** |
 
 The EC2 design cost ≈ $5–6/day: the cluster adds the control plane, bigger nodes for the observability stack, and the NAT gateway, and drops the interface endpoints. Deploy, demo, record, then run the Destroy workflow. ECR images and team IAM (`terraform/shared`) cost a few cents a month and are kept.
 

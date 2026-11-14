@@ -225,7 +225,7 @@ The workflows get short-lived AWS credentials over OIDC, so no access keys are s
 Grafana and Argo CD have no public endpoint. Assume your team role (with MFA), then:
 
 ```bash
-aws eks update-kubeconfig --region ap-south-1 --name frontrow
+aws eks update-kubeconfig --region us-east-1 --name frontrow
 
 # Grafana: dashboards for the API, the cluster and CloudWatch, plus Loki logs
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
@@ -262,7 +262,7 @@ The winning hold lasts 8 minutes, so pass a different `--seat` to repeat the tes
 python3 scripts/onsale.py --event skrillex-delhi-2027 --opens-in 60 --rate 20 --initial 50
 ```
 
-Use `--open` to turn the waiting room off again. If you deployed outside `ap-south-1`, add `--region`.
+Use `--open` to turn the waiting room off again. If you deployed outside `us-east-1`, add `--region`.
 
 **3. Send a stampede of browsing traffic.** Watch the edge cache absorb reads, the ALB spread the rest, and the HorizontalPodAutoscaler add API pods (`kubectl -n frontrow get hpa -w`, or the Grafana dashboard). Add `--bust-cache` to push the load through to the pods and DynamoDB.
 
@@ -287,7 +287,7 @@ All 19 tests run locally against mocked AWS services, so they need no account. T
 
 ## Cost
 
-Running the stack costs about **$10 to $11 per day** on demand in `ap-south-1` with idle-to-light demo traffic. Most of that is the two EKS nodes, the EKS control plane, the NAT gateway, the ALB and RDS. See the [cost breakdown](docs/ARCHITECTURE.md#7-cost), then deploy, demo and destroy.
+Running the stack costs about **$9 to $10 per day** on demand in `us-east-1` with idle-to-light demo traffic. Most of that is the two EKS nodes, the EKS control plane, the NAT gateway, the ALB and RDS. See the [cost breakdown](docs/ARCHITECTURE.md#7-cost), then deploy, demo and destroy.
 
 ## Disclaimer
 

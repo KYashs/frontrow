@@ -16,7 +16,7 @@ variable "project" {
 variable "region" {
   description = "Region for the state bucket. Use the same region as the stack."
   type        = string
-  default     = "ap-south-1"
+  default     = "us-east-1"
 }
 
 variable "create_oidc_provider" {

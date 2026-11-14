@@ -4,14 +4,14 @@ repoURL: https://github.com/example/frontrow.git
 revision: main
 cluster:
   name: frontrow
-  region: ap-south-1
+  region: us-east-1
   vpcId: vpc-00000000
 api:
   enabled: true
   image:
-    repository: 123456789012.dkr.ecr.ap-south-1.amazonaws.com/frontrow-api
+    repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/frontrow-api
     tag: "0000000000000000"
-  targetGroupArn: arn:aws:elasticloadbalancing:ap-south-1:123456789012:targetgroup/frontrow-tg/0000000000000000
+  targetGroupArn: arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/frontrow-tg/0000000000000000
   env: {}
 loki:
   bucket: frontrow-logs-example

@@ -5,7 +5,7 @@ variable "project" {
 
 variable "region" {
   type    = string
-  default = "ap-south-1"
+  default = "us-east-1"
 }
 
 variable "team_members" {

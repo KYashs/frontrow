@@ -25,7 +25,7 @@ def tables():
     )
 
 
-REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "ap-south-1"))
+REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
 HOLD_SECONDS = int(os.getenv("HOLD_SECONDS", "480"))          # 8 minutes to pay
 CHECKOUT_GRACE_SECONDS = int(os.getenv("CHECKOUT_GRACE_SECONDS", "300"))
 MAX_TICKETS = int(os.getenv("MAX_TICKETS_PER_ORDER", "8"))

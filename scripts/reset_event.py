@@ -16,7 +16,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--event", required=True)
     p.add_argument("--function", default="frontrow-inventory-seeder")
-    p.add_argument("--region", default="ap-south-1")
+    p.add_argument("--region", default="us-east-1")
     a = p.parse_args()
     lam = boto3.client("lambda", region_name=a.region)
     resp = lam.invoke(FunctionName=a.function, Payload=json.dumps({"events": [a.event], "force": True}).encode())

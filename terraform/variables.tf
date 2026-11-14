@@ -7,7 +7,7 @@ variable "project" {
 variable "region" {
   description = "Region for the regional services."
   type        = string
-  default     = "ap-south-1" # Mumbai
+  default     = "us-east-1" # N. Virginia: lowest prices
 }
 
 variable "sender_email" {

@@ -12,7 +12,7 @@ from moto import mock_aws
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "app")]
 
-REGION = "ap-south-1"
+REGION = "us-east-1"
 SENDER = "tickets@example.com"
 EVENT = "test-show-2027"
 

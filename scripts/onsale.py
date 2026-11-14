@@ -19,7 +19,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--event", required=True)
     p.add_argument("--table", default="frontrow-waiting-room")
-    p.add_argument("--region", default="ap-south-1")
+    p.add_argument("--region", default="us-east-1")
     p.add_argument("--opens-in", type=int, default=60, help="seconds until the gate opens")
     p.add_argument("--rate", type=float, default=20, help="people admitted per second")
     p.add_argument("--initial", type=int, default=50, help="admitted the moment it opens")

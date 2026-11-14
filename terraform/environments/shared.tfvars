@@ -4,7 +4,7 @@
 #
 # Groups: admins, developers, readonly (see terraform/shared/team.tf).
 
-region = "ap-south-1"
+region = "us-east-1"
 
 team_members = {
   # "priya" = "developers"

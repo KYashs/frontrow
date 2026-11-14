@@ -1,6 +1,6 @@
 name: Destroy
 
-# The stack costs about $10-11 a day. Tear it down when the demo is over;
+# The stack costs about $9-10 a day. Tear it down when the demo is over;
 # re-running Deploy brings it back. terraform/shared (ECR images, team IAM) and
 # terraform/bootstrap are kept.
 on:

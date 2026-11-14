@@ -4,12 +4,14 @@
 # and locally. Needs helm, python3 with PyYAML, and kubeconform (or docker).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT="$(mktemp -d)"
-trap 'rm -rf "$OUT"' EXIT
+WORK="$(mktemp -d)"
+OUT="$WORK/manifests"
+mkdir -p "$OUT"
+trap 'rm -rf "$WORK"' EXIT
 
-api=(--set image.repository=123456789012.dkr.ecr.ap-south-1.amazonaws.com/frontrow-api --set image.tag=0123456789abcdef
-     --set targetGroupArn=arn:aws:elasticloadbalancing:ap-south-1:123456789012:targetgroup/frontrow-tg/0123456789abcdef
-     --set env.QUEUE_URL=https://sqs.ap-south-1.amazonaws.com/123456789012/frontrow-checkout.fifo)
+api=(--set image.repository=123456789012.dkr.ecr.us-east-1.amazonaws.com/frontrow-api --set image.tag=0123456789abcdef
+     --set targetGroupArn=arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/frontrow-tg/0123456789abcdef
+     --set env.QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456789012/frontrow-checkout.fifo)
 
 echo "== lint"
 helm lint --quiet deploy/root
@@ -24,7 +26,7 @@ helm template platform-base deploy/charts/platform-base > "$OUT/platform-base.ya
 echo "== render third-party charts at the pinned versions, with deploy/platform values"
 chart() { python3 -c 'import sys, yaml; c = yaml.safe_load(open("deploy/root/values.yaml"))["charts"][sys.argv[1]]; print(c[sys.argv[2]])' "$1" "$2"; }
 # Charts are downloaded into CHART_CACHE (default: a temp dir); set it to reuse downloads.
-CACHE="${CHART_CACHE:-$OUT/charts}"
+CACHE="${CHART_CACHE:-$WORK/charts}"
 mkdir -p "$CACHE"
 third() { # name, values key, chart, namespace, extra args...
   local name=$1 key=$2 ch=$3 ns=$4; shift 4
@@ -42,12 +44,12 @@ third() { # name, values key, chart, namespace, extra args...
   echo "   $name $version: $(grep -c '^kind:' "$OUT/$name.yaml") objects"
 }
 third aws-load-balancer-controller awsLoadBalancerController aws-load-balancer-controller kube-system \
-  --set clusterName=frontrow --set region=ap-south-1 --set vpcId=vpc-0123456789abcdef0
+  --set clusterName=frontrow --set region=us-east-1 --set vpcId=vpc-0123456789abcdef0
 third metrics-server metricsServer metrics-server kube-system
 third kube-prometheus-stack kubePrometheusStack kube-prometheus-stack monitoring --kube-version 1.37.0
 third loki loki loki monitoring \
   --set loki.storage.bucketNames.chunks=b --set loki.storage.bucketNames.ruler=b \
-  --set loki.storage.bucketNames.admin=b --set loki.storage.s3.region=ap-south-1
+  --set loki.storage.bucketNames.admin=b --set loki.storage.s3.region=us-east-1
 third alloy alloy alloy monitoring
 
 echo "== validate against schemas"
