@@ -5,3 +5,6 @@
 !core/*.py
 !catalog/events.json
 !venues/*.json
+!frontend/*.html
+!frontend/*.js
+!frontend/*.css

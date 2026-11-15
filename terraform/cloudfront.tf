@@ -13,7 +13,13 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
 
 # Lets the origin decide: a 2-second edge cache on seat availability turns a
 # million identical "what's left?" requests into one origin hit per POP.
+locals {
+  cf  = var.cloudfront_enabled ? 1 : 0
+  waf = var.waf_enabled && var.cloudfront_enabled # the web ACL is CLOUDFRONT-scoped
+}
+
 resource "aws_cloudfront_cache_policy" "api" {
+  count       = local.cf
   name        = "${var.project}-api-origin-controlled"
   min_ttl     = 0
   default_ttl = 0
@@ -29,7 +35,8 @@ resource "aws_cloudfront_cache_policy" "api" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "security" {
-  name = "${var.project}-security-headers"
+  count = local.cf
+  name  = "${var.project}-security-headers"
 
   security_headers_config {
     strict_transport_security {
@@ -62,6 +69,7 @@ resource "aws_cloudfront_response_headers_policy" "security" {
 }
 
 resource "aws_cloudfront_origin_access_control" "frontend" {
+  count                             = local.cf
   name                              = "${var.project}-web"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -69,18 +77,19 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
 }
 
 resource "aws_cloudfront_distribution" "main" {
+  count               = local.cf
   enabled             = true
   comment             = "${var.project}: S3 site + /api to ALB"
   default_root_object = "index.html"
   price_class         = "PriceClass_All" # shows in Mumbai, Delhi, LA and New Jersey
   http_version        = "http2and3"
   aliases             = local.use_domain ? [var.domain_name] : []
-  web_acl_id          = var.waf_enabled ? aws_wafv2_web_acl.edge[0].arn : null
+  web_acl_id          = local.waf ? aws_wafv2_web_acl.edge[0].arn : null
 
   origin {
     origin_id                = "s3-web"
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend[0].id
   }
 
   origin {
@@ -108,7 +117,7 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security[0].id
     compress                   = true
   }
 
@@ -118,9 +127,9 @@ resource "aws_cloudfront_distribution" "main" {
     viewer_protocol_policy     = "redirect-to-https"
     allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods             = ["GET", "HEAD"]
-    cache_policy_id            = aws_cloudfront_cache_policy.api.id
+    cache_policy_id            = aws_cloudfront_cache_policy.api[0].id
     origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security[0].id
     compress                   = true
   }
 

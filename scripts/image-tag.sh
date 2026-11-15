@@ -5,5 +5,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 git ls-files -z -- Dockerfile .dockerignore 'app/*.py' app/requirements.txt app/constraints.txt \
-    'core/*.py' catalog/events.json 'venues/*.json' \
+    'core/*.py' catalog/events.json 'venues/*.json' 'frontend/*' \
   | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16

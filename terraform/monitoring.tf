@@ -83,7 +83,7 @@ resource "aws_cloudwatch_dashboard" "onsale" {
         properties = {
           title = "Edge: requests and WAF blocks", region = "us-east-1", stat = "Sum", period = 60, view = "timeSeries"
           metrics = [
-            ["AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.main.id, "Region", "Global"],
+            ["AWS/CloudFront", "Requests", "DistributionId", coalesce(one(aws_cloudfront_distribution.main[*].id), "none"), "Region", "Global"],
             ["AWS/WAFV2", "BlockedRequests", "WebACL", "${var.project}-edge", "Rule", "ALL", { yAxis = "right" }],
           ]
         }

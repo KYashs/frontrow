@@ -133,6 +133,11 @@ Deploy    merge to main -> GitHub Actions: Terraform (AWS) + image to ECR -> Arg
 **People.** Users get no permissions directly. Each is in one group (`frontrow-admins`, `frontrow-developers`, `frontrow-readonly`) that may only assume the matching role, and the roles require MFA. EKS access entries trust those same roles, so one identity covers the console, the CLI and `kubectl`: admins are cluster admins; developers can edit the `frontrow` namespace and view the rest; read-only can view. Developers and read-only get `ViewOnlyAccess`, which shows configuration but not data, so order emails stay private; developers add only what the on-sale scripts need. Membership is a map in `terraform/environments/shared.tfvars`, changed by pull request.
 **Lifecycle.** Team IAM and ECR live in `terraform/shared`, which the Destroy workflow never touches, so tearing down the stack doesn't delete people or images.
 
+### ADR-17: A switch to run without CloudFront
+- **Context:** AWS must verify a new account before it can create CloudFront distributions, which can take days. The rest of the stack doesn't depend on that.
+- **Decision:** `cloudfront_enabled` (default `true`). When `false`, no distribution or CLOUDFRONT-scoped WAF is created; the ALB accepts HTTP from anywhere and forwards every path to the API pods, which also serve the static site, venue maps and `config.json` (`WS_URL` comes from Terraform). An ALB rule returns 404 for `/metrics`, which CloudFront would never have routed.
+- **Trade-off:** no HTTPS, no edge cache absorbing browse traffic, and no WAF. It's for demos while verification is pending, not for an on-sale. Flipping it back to `true` restores the CDN design with no other change.
+
 ---
 
 ## 4. Capacity math (back of the envelope)

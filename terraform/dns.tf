@@ -2,7 +2,7 @@
 # site on your own domain; otherwise use the *.cloudfront.net URL output.
 
 locals {
-  use_domain = var.domain_name != "" && var.hosted_zone_id != ""
+  use_domain = var.domain_name != "" && var.hosted_zone_id != "" && var.cloudfront_enabled
 }
 
 resource "aws_acm_certificate" "site" {
@@ -46,8 +46,8 @@ resource "aws_route53_record" "site" {
   type    = each.key
 
   alias {
-    name                   = aws_cloudfront_distribution.main.domain_name
-    zone_id                = aws_cloudfront_distribution.main.hosted_zone_id
+    name                   = aws_cloudfront_distribution.main[0].domain_name
+    zone_id                = aws_cloudfront_distribution.main[0].hosted_zone_id
     evaluate_target_health = false
   }
 }

@@ -1,6 +1,6 @@
 output "site_url" {
   description = "Open this in your browser."
-  value       = local.use_domain ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.main.domain_name}"
+  value       = local.use_domain ? "https://${var.domain_name}" : var.cloudfront_enabled ? "https://${aws_cloudfront_distribution.main[0].domain_name}" : "http://${aws_lb.app.dns_name}"
 }
 
 output "websocket_url" {

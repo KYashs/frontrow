@@ -16,6 +16,7 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
 }
 
 data "aws_iam_policy_document" "frontend_bucket" {
+  count = local.cf
   statement {
     sid       = "CloudFrontReadOnly"
     actions   = ["s3:GetObject"]
@@ -27,14 +28,15 @@ data "aws_iam_policy_document" "frontend_bucket" {
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.main.arn]
+      values   = [aws_cloudfront_distribution.main[0].arn]
     }
   }
 }
 
 resource "aws_s3_bucket_policy" "frontend" {
+  count  = local.cf
   bucket = aws_s3_bucket.frontend.id
-  policy = data.aws_iam_policy_document.frontend_bucket.json
+  policy = data.aws_iam_policy_document.frontend_bucket[0].json
 }
 
 locals {

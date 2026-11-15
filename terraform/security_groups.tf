@@ -27,9 +27,21 @@ resource "aws_security_group" "rds" {
 
 # ---- ALB ----
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
+  count             = local.cf
   security_group_id = aws_security_group.alb.id
   description       = "HTTP from CloudFront edge only"
   prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront.id
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
+}
+
+# Without CloudFront the ALB is the front door: HTTP from anywhere.
+resource "aws_vpc_security_group_ingress_rule" "alb_from_internet" {
+  count             = 1 - local.cf
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTP from the internet (no CloudFront)"
+  cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80

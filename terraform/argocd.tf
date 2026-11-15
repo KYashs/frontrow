@@ -16,6 +16,7 @@ locals {
     DB_SECRET_ARN      = aws_db_instance.main.master_user_secret[0].secret_arn
     TOKEN_SECRET_ARN   = aws_secretsmanager_secret.token_key.arn
     HOLD_SECONDS       = tostring(var.hold_seconds)
+    WS_URL             = aws_apigatewayv2_stage.live.invoke_url # read by /config.json when the pods serve the site
   })
 
   root_values = {

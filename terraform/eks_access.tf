@@ -51,3 +51,24 @@ resource "aws_eks_access_policy_association" "this" {
 
   depends_on = [aws_eks_access_entry.this]
 }
+
+# Extra cluster admins by ARN, e.g. the IAM user that ran the bootstrap, so
+# `kubectl port-forward` to Grafana and Argo CD works without assuming a team role.
+resource "aws_eks_access_entry" "extra_admin" {
+  for_each      = toset(var.cluster_admin_arns)
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = each.value
+}
+
+resource "aws_eks_access_policy_association" "extra_admin" {
+  for_each      = toset(var.cluster_admin_arns)
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = each.value
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.extra_admin]
+}

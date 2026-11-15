@@ -30,3 +30,10 @@ hold_seconds = 480
 
 # Firehose needs a paid AWS plan. Set true after upgrading to turn the order data lake on.
 analytics_enabled = false
+
+# AWS hasn't verified this account for CloudFront yet, so the ALB is the public
+# entry point (HTTP) and the API pods serve the site. Set true once verified.
+cloudfront_enabled = false
+
+# Your own IAM user, so kubectl (Grafana, Argo CD port-forwards) works from your laptop.
+cluster_admin_arns = ["arn:aws:iam::859928916413:user/kyash-admin"]

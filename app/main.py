@@ -3,6 +3,8 @@
 One uvicorn worker per pod; Kubernetes scales pods, so Prometheus metrics stay
 per-process and need no multiprocess mode. /metrics is outside /api, so
 CloudFront never routes it: only Prometheus inside the cluster can scrape it.
+Without CloudFront (cloudfront_enabled = false) the ALB blocks /metrics instead,
+and these pods also serve the static site (bottom of this file).
 
 Read path (cacheable at CloudFront for a few seconds):
   GET  /api/events                               RDS
@@ -23,11 +25,13 @@ import os
 import socket
 import time
 import urllib.request
+from pathlib import Path
 from typing import List, Optional
 
 from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -62,7 +66,7 @@ async def observability(request: Request, call_next):
     t0 = time.perf_counter()
     response = await call_next(request)
     elapsed = time.perf_counter() - t0
-    route = getattr(request.scope.get("route"), "path", "unmatched")
+    route = getattr(request.scope.get("route"), "path", "unmatched") or "/static"  # mounts have path ""
     if route != "/metrics":
         REQUESTS.labels(request.method, route, str(response.status_code)).inc()
         LATENCY.labels(request.method, route).observe(elapsed)
@@ -351,3 +355,25 @@ def aws_error(request, exc):
     log.exception("AWS error %s on %s", code, request.url.path)
     status = 503 if "Throttl" in code or code == "ProvisionedThroughputExceededException" else 500
     return JSONResponse({"detail": {"message": "Temporary problem, please retry", "code": code}}, status_code=status)
+
+
+# ---------------------------------------------------------------- static site
+# With CloudFront the site comes from S3 and only /api/* reaches the pods.
+# Without it (Terraform cloudfront_enabled = false) the ALB sends everything
+# here, so the pods also serve the site, venue maps and runtime config.
+# Registered last, so every route above takes precedence.
+def _first_dir(name: str) -> Optional[Path]:
+    here = Path(__file__).resolve().parent
+    return next((d for d in (here / name, here.parent / name) if d.is_dir()), None)
+
+
+@app.get("/config.json", include_in_schema=False)
+def site_config():
+    return {"ws_url": os.getenv("WS_URL", ""), "region": settings.REGION}
+
+
+if (_venues := _first_dir("venues")) is not None:
+    app.mount("/venues", StaticFiles(directory=_venues), name="venues")
+if (_site := _first_dir("frontend")) is not None:
+    app.mount("/", StaticFiles(directory=_site, html=True), name="site")
+

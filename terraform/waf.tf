@@ -4,7 +4,7 @@
 #   - a much tighter rate limit on POST /api/holds (seat-grabbing bots)
 
 resource "aws_wafv2_web_acl" "edge" {
-  count    = var.waf_enabled ? 1 : 0
+  count    = local.waf ? 1 : 0
   provider = aws.us_east_1
   name     = "${var.project}-edge"
   scope    = "CLOUDFRONT"

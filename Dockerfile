@@ -19,6 +19,7 @@ COPY app/*.py ./
 COPY core/*.py ./core/
 COPY catalog/events.json ./catalog/
 COPY venues/*.json ./venues/
+COPY frontend/ ./frontend/
 # Unprivileged, and the root filesystem can be mounted read-only.
 USER 10001:10001
 EXPOSE 8000

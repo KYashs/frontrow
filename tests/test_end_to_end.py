@@ -122,3 +122,15 @@ def test_prometheus_metrics(api):
     assert "no-such-hold" not in body
     assert 'route="/metrics"' not in body                           # scrapes don't count themselves
     assert "frontrow_http_request_duration_seconds_bucket" in body
+
+
+def test_pods_serve_site_without_cloudfront(api, monkeypatch):
+    # cloudfront_enabled = false: the ALB sends every path to the pods.
+    monkeypatch.setenv("WS_URL", "wss://example.execute-api.us-east-1.amazonaws.com/live")
+    home = api.get("/")
+    assert home.status_code == 200 and "<title>FrontRow</title>" in home.text
+    assert api.get("/app.js").status_code == 200
+    assert api.get("/config.json").json()["ws_url"].startswith("wss://")
+    assert "viewBox" in api.get("/venues/metlife.json").json()
+    assert api.get("/api/events").status_code == 200                # API routes still win
+    assert api.get("/nope.txt").status_code == 404

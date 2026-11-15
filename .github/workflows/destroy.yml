@@ -61,10 +61,26 @@ jobs:
             echo "Argo CD is not installed; skipping Application cleanup."
           fi
           kubectl delete pvc --all --all-namespaces --wait --timeout=10m
+          # PVC deletion returns before the CSI driver deletes the EBS disk. Wait
+          # for the cluster's disks to go, or Terraform removes the driver first
+          # and orphans them.
+          for _ in $(seq 30); do
+            left="$(aws ec2 describe-volumes --region "$region" \
+              --filters "Name=tag:kubernetes.io/cluster/$cluster,Values=owned" \
+              --query 'length(Volumes)' --output text)"
+            [ "$left" = "0" ] && break
+            echo "Waiting for $left EBS volume(s) to be deleted..."; sleep 10
+          done
 
       - name: terraform destroy
         working-directory: terraform
         run: |
           terraform destroy -input=false -auto-approve -lock-timeout=10m -no-color \
             -var-file=environments/prod.tfvars
+          # Safety net: any cluster disk still left is detached now; delete it.
+          for v in $(aws ec2 describe-volumes --region "${{ vars.TF_STATE_REGION }}" \
+              --filters "Name=tag:kubernetes.io/cluster/frontrow,Values=owned" "Name=status,Values=available" \
+              --query 'Volumes[].VolumeId' --output text); do
+            echo "Deleting leftover EBS volume $v"; aws ec2 delete-volume --region "${{ vars.TF_STATE_REGION }}" --volume-id "$v"
+          done
           echo "Stack destroyed. ECR images, team IAM (terraform/shared) and the state bucket are kept." >> "$GITHUB_STEP_SUMMARY"

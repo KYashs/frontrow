@@ -124,3 +124,19 @@ variable "analytics_enabled" {
   type        = bool
   default     = true
 }
+
+variable "cloudfront_enabled" {
+  description = <<-EOT
+    true: CloudFront serves the site from S3 and proxies /api/* to the ALB, which
+    only accepts CloudFront. false: no CDN - the ALB is public over HTTP and the
+    API pods also serve the site. For accounts AWS hasn't verified for CloudFront.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "cluster_admin_arns" {
+  description = "Extra IAM users or roles to make EKS cluster admins (for kubectl), besides the pipeline and team roles."
+  type        = list(string)
+  default     = []
+}

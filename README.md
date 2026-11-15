@@ -218,7 +218,7 @@ The workflows get short-lived AWS credentials over OIDC, so no access keys are s
 
 4. **Push to `main`.** The Deploy workflow creates the shared resources, the image, EKS and the rest of the stack, and seeds every seat into DynamoDB. Argo CD then installs the observability stack and the API, which takes a few more minutes. The site URL is in the run summary.
 
-   **AWS Free plan accounts** (the default for new accounts since mid-2025) only allow some EC2 types and can't use Firehose. `environments/prod.tfvars` already uses `m7i-flex.large` nodes and sets `analytics_enabled = false`; set it to `true` after upgrading to a paid plan. New accounts also need AWS Support to verify the account before CloudFront can be used: open a support case early.
+   **AWS Free plan accounts** (the default for new accounts since mid-2025) only allow some EC2 types and can't use Firehose. `environments/prod.tfvars` already uses `m7i-flex.large` nodes and sets `analytics_enabled = false`; set it to `true` after upgrading to a paid plan. New accounts also need AWS Support to verify the account before CloudFront can be used, which can take days. Until then, `cloudfront_enabled = false` deploys without it: the ALB is public over plain HTTP, the API pods also serve the site, and WAF and edge caching are off ([ADR-17](docs/ARCHITECTURE.md#adr-17-a-switch-to-run-without-cloudfront)). The site URL is then `http://<alb-dns-name>`.
 
 5. **Verify the SES sender.** SES emails a verification link to `SENDER_EMAIL` during the first deploy, so click it. If your account is still in the SES sandbox, recipient addresses must be verified too. The simplest option is to buy tickets using the sender address.
 
