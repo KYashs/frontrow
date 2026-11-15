@@ -1,6 +1,6 @@
 name: Destroy
 
-# The stack costs about $9-10 a day. Tear it down when the demo is over;
+# The stack costs about $10 a day. Tear it down when the demo is over;
 # re-running Deploy brings it back. terraform/shared (ECR images, team IAM) and
 # terraform/bootstrap are kept.
 on:
@@ -51,10 +51,15 @@ jobs:
             echo "No cluster running; nothing to clean up."; exit 0
           fi
           aws eks update-kubeconfig --name "$cluster" --region "$region"
-          # The API first, while the load balancer controller can still deregister its pods.
-          kubectl -n argocd delete application frontrow-api --ignore-not-found --wait --timeout=10m
-          # Then everything else: each Application's finalizer deletes what it deployed.
-          kubectl -n argocd delete application frontrow-root --ignore-not-found --wait --timeout=15m
+          # A half-finished deploy may have stopped before Argo CD was installed.
+          if kubectl get crd applications.argoproj.io > /dev/null 2>&1; then
+            # The API first, while the load balancer controller can still deregister its pods.
+            kubectl -n argocd delete application frontrow-api --ignore-not-found --wait --timeout=10m
+            # Then everything else: each Application's finalizer deletes what it deployed.
+            kubectl -n argocd delete application frontrow-root --ignore-not-found --wait --timeout=15m
+          else
+            echo "Argo CD is not installed; skipping Application cleanup."
+          fi
           kubectl delete pvc --all --all-namespaces --wait --timeout=10m
 
       - name: terraform destroy

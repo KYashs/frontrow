@@ -147,6 +147,7 @@ data "aws_iam_policy_document" "firehose_assume" {
 }
 
 resource "aws_iam_role" "firehose" {
+  count              = local.analytics
   name               = "${var.project}-firehose"
   assume_role_policy = data.aws_iam_policy_document.firehose_assume.json
 }
@@ -159,8 +160,9 @@ data "aws_iam_policy_document" "firehose" {
 }
 
 resource "aws_iam_role_policy" "firehose" {
+  count  = local.analytics
   name   = "write-lake"
-  role   = aws_iam_role.firehose.id
+  role   = aws_iam_role.firehose[0].id
   policy = data.aws_iam_policy_document.firehose.json
 }
 
@@ -175,19 +177,22 @@ data "aws_iam_policy_document" "events_assume" {
 }
 
 resource "aws_iam_role" "events_to_firehose" {
+  count              = local.analytics
   name               = "${var.project}-events-to-firehose"
   assume_role_policy = data.aws_iam_policy_document.events_assume.json
 }
 
 data "aws_iam_policy_document" "events_to_firehose" {
+  count = local.analytics
   statement {
     actions   = ["firehose:PutRecord", "firehose:PutRecordBatch"]
-    resources = [aws_kinesis_firehose_delivery_stream.orders.arn]
+    resources = [aws_kinesis_firehose_delivery_stream.orders[0].arn]
   }
 }
 
 resource "aws_iam_role_policy" "events_to_firehose" {
+  count  = local.analytics
   name   = "put-records"
-  role   = aws_iam_role.events_to_firehose.id
-  policy = data.aws_iam_policy_document.events_to_firehose.json
+  role   = aws_iam_role.events_to_firehose[0].id
+  policy = data.aws_iam_policy_document.events_to_firehose[0].json
 }

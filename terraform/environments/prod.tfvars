@@ -11,8 +11,9 @@
 
 region = "us-east-1"
 
-eks_version        = "1.37" # standard support until 2027-12-01
-node_instance_type = "t3.large"
+eks_version = "1.37" # standard support until 2027-12-01
+# m7i-flex.large: 2 vCPU / 8 GiB like t3.large, and allowed on the AWS Free plan.
+node_instance_type = "m7i-flex.large"
 node_min           = 2
 node_max           = 4
 db_multi_az        = false
@@ -26,3 +27,6 @@ hold_seconds = 480
 # Optional custom domain (needs a Route 53 hosted zone you own):
 # domain_name    = "tickets.example.com"
 # hosted_zone_id = "Z0123456789ABCDEFGHIJ"
+
+# Firehose needs a paid AWS plan. Set true after upgrading to turn the order data lake on.
+analytics_enabled = false

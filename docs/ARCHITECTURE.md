@@ -186,7 +186,7 @@ On-demand, `us-east-1` (chosen for its lower prices), idle-to-light demo traffic
 
 | Item | Approx. per day |
 |---|---|
-| 2 x EKS nodes, t3.large | $4.00 |
+| 2 x EKS nodes, m7i-flex.large (allowed on the AWS Free plan) | $4.60 |
 | EKS control plane | $2.40 |
 | NAT gateway (plus a few cents of data) | $1.10 |
 | ALB | $0.55 |
@@ -196,7 +196,7 @@ On-demand, `us-east-1` (chosen for its lower prices), idle-to-light demo traffic
 | EBS gp3: node disks, Prometheus and Loki volumes (~90 GB) | $0.24 |
 | DynamoDB storage + seeding (one-off ~$0.20) | $0.05 |
 | Lambda, SQS, EventBridge, API Gateway WS, Firehose, S3, CloudFront, Athena, ECR, control-plane logs | cents |
-| **Total** | **≈ $9–10/day** |
+| **Total** | **≈ $10/day** |
 
 The EC2 design cost ≈ $5–6/day: the cluster adds the control plane, bigger nodes for the observability stack, and the NAT gateway, and drops the interface endpoints. Deploy, demo, record, then run the Destroy workflow. ECR images and team IAM (`terraform/shared`) cost a few cents a month and are kept.
 

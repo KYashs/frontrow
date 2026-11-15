@@ -39,8 +39,10 @@ resource "aws_lambda_permission" "notifier" {
   source_arn    = aws_cloudwatch_event_rule.confirmed.arn
 }
 
-# Every order outcome -> Firehose -> S3 data lake (analytics.tf)
+# Every order outcome -> Firehose -> S3 data lake (analytics.tf).
+# Off when var.analytics_enabled is false (Firehose needs a paid AWS plan).
 resource "aws_cloudwatch_event_rule" "all_orders" {
+  count          = local.analytics
   name           = "${var.project}-orders-to-lake"
   event_bus_name = aws_cloudwatch_event_bus.orders.name
   event_pattern = jsonencode({
@@ -50,10 +52,11 @@ resource "aws_cloudwatch_event_rule" "all_orders" {
 }
 
 resource "aws_cloudwatch_event_target" "firehose" {
-  rule           = aws_cloudwatch_event_rule.all_orders.name
+  count          = local.analytics
+  rule           = aws_cloudwatch_event_rule.all_orders[0].name
   event_bus_name = aws_cloudwatch_event_bus.orders.name
-  arn            = aws_kinesis_firehose_delivery_stream.orders.arn
-  role_arn       = aws_iam_role.events_to_firehose.arn
+  arn            = aws_kinesis_firehose_delivery_stream.orders[0].arn
+  role_arn       = aws_iam_role.events_to_firehose[0].arn
   input_path     = "$.detail" # just the order facts, one JSON object per record
 
   dead_letter_config {

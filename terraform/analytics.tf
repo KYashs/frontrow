@@ -3,6 +3,7 @@
 # -> Glue Data Catalog (partition projection) -> Athena SQL.
 
 locals {
+  analytics = var.analytics_enabled ? 1 : 0
   event_ids = [for e in jsondecode(file("${path.module}/../catalog/events.json")).events : e.event_id]
 }
 
@@ -41,11 +42,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "lake" {
 }
 
 resource "aws_kinesis_firehose_delivery_stream" "orders" {
+  count       = local.analytics
   name        = "${var.project}-orders"
   destination = "extended_s3"
 
   extended_s3_configuration {
-    role_arn            = aws_iam_role.firehose.arn
+    role_arn            = aws_iam_role.firehose[0].arn
     bucket_arn          = aws_s3_bucket.lake.arn
     prefix              = "orders/event_id=!{partitionKeyFromQuery:event_id}/dt=!{timestamp:yyyy-MM-dd}/"
     error_output_prefix = "errors/!{firehose:error-output-type}/dt=!{timestamp:yyyy-MM-dd}/"

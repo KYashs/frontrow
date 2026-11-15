@@ -118,3 +118,9 @@ variable "hold_seconds" {
   type        = number
   default     = 480
 }
+
+variable "analytics_enabled" {
+  description = "Stream every order through Firehose into the S3 data lake. AWS Free plan accounts can't use Firehose; set false there."
+  type        = bool
+  default     = true
+}
