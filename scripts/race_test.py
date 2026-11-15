@@ -10,6 +10,7 @@ Standard library only.
 """
 import argparse
 import json
+import random
 import sys
 import threading
 import time
@@ -55,10 +56,19 @@ def main():
     print(f"admitted: {sum(1 for t in tokens if t)}/{a.buyers}")
 
     barrier = threading.Barrier(a.buyers)
+    retries = Counter()
     def grab(token):
         barrier.wait()  # everyone clicks at once
-        return call(base, "/holds", "POST", {"event_id": a.event, "access_token": token,
-                                             "seats": [{"section": a.section, "seat": a.seat}]})
+        body = {"event_id": a.event, "access_token": token, "seats": [{"section": a.section, "seat": a.seat}]}
+        # 503 = DynamoDB TransactionConflict: another transaction on this seat was
+        # in flight. Not an answer yet, so retry like a real client until 201 or 409.
+        for attempt in range(6):
+            res = call(base, "/holds", "POST", body)
+            if res[0] != 503:
+                return res
+            retries["503"] += 1
+            time.sleep(0.05 * 2 ** attempt + random.random() * 0.05)
+        return res
 
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=a.buyers) as pool:
@@ -66,7 +76,8 @@ def main():
     print(f"{a.buyers} hold attempts answered in {time.time() - t0:.2f}s")
     codes = Counter(code for code, _, _ in results)
     servers = Counter(s for _, _, s in results)
-    print("responses:", dict(codes), "(201 = held, 409 = someone else got it)")
+    print("final answers:", dict(codes), "(201 = held, 409 = someone else got it)")
+    print(f"busy retries along the way: {retries['503']} (503 = DynamoDB TransactionConflict, retried)")
     print("spread across API pods:", dict(servers))
 
     winners = [body for code, body, _ in results if code == 201]

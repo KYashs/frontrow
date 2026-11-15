@@ -18,6 +18,8 @@ FrontRow is a concert ticketing platform on AWS, built for the moment tickets dr
 
 ![FrontRow AWS service map](docs/service-map.png)
 
+![FrontRow AWS architecture: CloudFront and WAF in front of an ALB, EKS across two Availability Zones, DynamoDB, SQS, Lambda and EventBridge, deployed with GitHub Actions and Argo CD](docs/aws-architecture.png)
+
 An interactive version is in [docs/service-map.html](docs/service-map.html): download it, open it in a browser and click a flow to isolate it.
 
 ```mermaid
