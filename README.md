@@ -1,6 +1,6 @@
 # FrontRow
 
-FrontRow is a concert ticketing platform on AWS, built for the moment tickets drop: a huge crowd arrives at once and everyone wants the same seats. It sells 113,964 individually numbered seats and 75,450 general-admission places across four stadium shows, and it is designed so that no seat can be sold twice. A DynamoDB transaction decides every hold in one atomic step. A waiting room admits buyers at a rate the back end can absorb, CloudFront absorbs browsing traffic, and checkout runs through a queue so a payment outage cannot take the shop down. The API runs on Amazon EKS behind CloudFront and an ALB, with serverless Lambdas for everything event-driven. Git is the source of truth: GitHub Actions applies Terraform and ships the image, Argo CD syncs the cluster, and Prometheus, Grafana and Loki watch it. Every pod and person gets least-privilege IAM. There are 19 automated tests and a script that races buyers for one seat on the deployed system.
+FrontRow is a concert ticketing platform on AWS, built for the moment tickets drop: a huge crowd arrives at once and everyone wants the same seats. It sells 113,964 individually numbered seats and 75,450 general-admission places across four stadium shows, and it is designed so that no seat can be sold twice. A DynamoDB transaction decides every hold in one atomic step. A waiting room admits buyers at a rate the back end can absorb, CloudFront absorbs browsing traffic, and checkout runs through a queue so a payment outage cannot take the shop down. The API runs on Amazon EKS behind CloudFront and an ALB, with serverless Lambdas for everything event-driven. Git is the source of truth: GitHub Actions applies Terraform and ships the image, Argo CD syncs the cluster, and Prometheus, Grafana and Loki watch it. Every pod and person gets least-privilege IAM. There are 20 automated tests and a script that races buyers for one seat on the deployed system.
 
 ![FrontRow home page listing four shows](docs/screenshots/home.png)
 
@@ -194,7 +194,7 @@ FrontRow is deployed with GitOps: the `main` branch is the source of truth. GitH
 
 The workflows get short-lived AWS credentials over OIDC, so no access keys are stored in GitHub. Builds are reproducible and the image tag is a hash of its inputs, so a merge only redeploys the Lambdas or the API when their code actually changed.
 
-**Set it up once.** You need Terraform 1.10 or later, AWS admin credentials and a GitHub repository.
+**Set it up once.** You need Terraform 1.10 or later, AWS admin credentials and a GitHub repository. The full walkthrough, with prerequisites, verification, teardown and troubleshooting, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 1. **Create the state bucket and GitHub roles.** This is the only step run from your machine:
 
@@ -291,7 +291,7 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-All 19 tests run locally against mocked AWS services, so they need no account. They cover the race for a single seat, all-or-nothing multi-seat holds, GA overselling, hold expiry, the full checkout flow and the Prometheus metrics. SQLite stands in for RDS, so they don't need Postgres or `psycopg2`. The pull request and deploy workflows run them on every change, and also build and smoke-test the API image, render and schema-check every Kubernetes manifest (`scripts/check-deploy.sh`), check that the Lambda build is reproducible, and check that Terraform is formatted and valid.
+All 20 tests run locally against mocked AWS services, so they need no account. They cover the race for a single seat, all-or-nothing multi-seat holds, GA overselling, hold expiry, the full checkout flow and the Prometheus metrics. SQLite stands in for RDS, so they don't need Postgres or `psycopg2`. The pull request and deploy workflows run them on every change, and also build and smoke-test the API image, render and schema-check every Kubernetes manifest (`scripts/check-deploy.sh`), check that the Lambda build is reproducible, and check that Terraform is formatted and valid.
 
 ## Cost
 
