@@ -38,6 +38,23 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
+  # The chart generates a new self-signed webhook certificate on every render
+  # (Argo CD can't run Helm's lookup). Keep the first one: otherwise each sync
+  # rotates the Secret and caBundle out of step with the running controller and
+  # the API server rejects its webhook, so TargetGroupBindings can't be created.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: aws-load-balancer-tls
+      jsonPointers: [/data]
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
   {{- include "root.syncPolicy" . | nindent 2 }}
 ---
 apiVersion: argoproj.io/v1alpha1

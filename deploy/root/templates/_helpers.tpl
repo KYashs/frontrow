@@ -16,6 +16,7 @@ syncPolicy:
   syncOptions:
     - CreateNamespace=true
     - ServerSideApply=true
+    - RespectIgnoreDifferences=true # keep ignoreDifferences fields out of syncs too
   retry:
     limit: 10
     backoff:
